@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestRotaTest(t *testing.T) {
+func TestRotaLogic(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Test Suite for support rota")
 }

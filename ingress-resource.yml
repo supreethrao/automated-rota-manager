@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    sky.uk/frontend-elb-scheme: internal
+    sky.uk/strip-path: "true"
+  labels:
+    service: support-bot-service
+  name: support-bot-service-http
+  namespace: test-prometheus
+spec:
+  rules:
+  - host: support-bot.dev.cosmic.sky
+    http:
+      paths:
+      - backend:
+          serviceName: support-bot-service
+          servicePort: 9090
+        path: /support-bot

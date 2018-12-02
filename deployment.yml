@@ -1,0 +1,53 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    DESIRED_REPLICAS: "1"
+  labels:
+    app: support-bot
+  name: support-bot
+  namespace: test-prometheus
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: support-bot
+      deployment: support-bot
+  template:
+    metadata:
+      labels:
+        app: support-bot
+        deployment: support-bot
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - support-bot-service
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      containers:
+      - name: support-bot
+        image: registry.tools.cosmic.sky/core-engineering/test-repo/support-bot:v0.0.3
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: "0"
+            memory: 200Mi
