@@ -2,6 +2,10 @@
 
 Provides a fair rotation algorithm to decide the next person to be on support. It maintains count of the support days of individual team members and uses that to decide based on person having fewest support days. It also takes into account not to put the same person support without a gap of atleast 2 days, irrespective of the number of support days.
 
+## Project setup
+This project uses dep for dependency management. use `dep ensure` command to ensure all the dependencies are in place. Makefile has the target `setup` which should do the same. This project uses ginkgo/gomega for testing and `make check` should run the testsuite. The go binary is currently built for linux amd64 environment. More support will be added later. This target takes in an argument to pass in the gopath to copy the binary over to the bin directory in module root for the purposes of creating the docker image. `make currentGoPath=/home/supreeth/workspace install` And finally, the `make docker` command creates an image with the passed in image version and pushes to the `core-engineering` repository. `make imageVersion=1.0.0 docker`.
+
+
 ## Endpoints
 
 1. GET - `/members` - Lists the details of the current team members in the support rota along with the number of days supported till date and the last date they were on support
@@ -24,9 +28,8 @@ Provides a fair rotation algorithm to decide the next person to be on support. I
 - [ ] Edit title in the `core-infrastructure` for the person on support details from the `confirm` and `override` endpoints.
 - [ ] More endpoints to reset the details of a particular team member
 - [ ] Use slack usernames so that the user @ could be used in the slack channel notification
-
+- [ ] Add more test cases
+- [ ] Support go binary in multiple environments
 
 ## Known issues
 1. When the `override` endpoint is called, the last supported day for the person currently assigned will change to the initial value (`31-12-2006`) which is incorrect. Need to put in the logic to obtain the previous time to today that person was assigned on to support
-
-
