@@ -54,6 +54,11 @@ func serve() {
 		}
 	})
 
+	router.GET("/reset", func(writer http.ResponseWriter, request *http.Request, _ httprouter.Params) {
+		myTeam.Reset()
+		writer.WriteHeader(http.StatusAccepted)
+	})
+
 	http.Handle("/metrics", promhttp.Handler())
 
 	log.Fatal(http.ListenAndServe(":9090", router))
