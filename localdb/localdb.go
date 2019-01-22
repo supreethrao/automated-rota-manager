@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	dbLocation string = "/tmp/data"
+	dbLocation string = "/badger/data"
 )
 
 var sequences = make(map[string]*badger.Sequence)

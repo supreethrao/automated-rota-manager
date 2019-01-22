@@ -1,7 +1,6 @@
 package rota
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -46,8 +45,6 @@ func today() string {
 
 func Next(t Team) string {
 	teamSupportHistory := OrderedList(t.SupportHistoryForTeam())
-
-	fmt.Println(teamSupportHistory)
 
 	if teamSupportHistory.Len() < 1 {
 		return "UNKNOWN"

@@ -199,6 +199,14 @@
   revision = "aa55a523dc0a8297edf51bb75e8eec13eb3be45d"
 
 [[projects]]
+  digest = "1:ed615c5430ecabbb0fb7629a182da65ecee6523900ac1ac932520860878ffcad"
+  name = "github.com/robfig/cron"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b41be1df696709bb6395fe435af20370037c0b4c"
+  version = "v1.1"
+
+[[projects]]
   branch = "master"
   digest = "1:0ad27c13b4d8059e712dc70f1d2352427710d6547fa54927429c7b6db9802c87"
   name = "golang.org/x/net"
@@ -282,6 +290,7 @@
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/robfig/cron",
     "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"

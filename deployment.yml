@@ -6,7 +6,7 @@ metadata:
   labels:
     app: support-bot
   name: support-bot
-  namespace: test-prometheus
+  namespace: core-infra-support
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -39,7 +39,7 @@ spec:
             weight: 1
       containers:
       - name: support-bot
-        image: registry.tools.cosmic.sky/core-engineering/test-repo/support-bot:v0.0.3
+        image: registry.tools.cosmic.sky/core-engineering/test-repo/support-bot:v1.0.7
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9090
@@ -51,3 +51,16 @@ spec:
           requests:
             cpu: "0"
             memory: 200Mi
+        env:
+        - name: SLACK_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: support-bot-token
+              key: token
+        volumeMounts:
+        - mountPath: /badger/data
+          name: support-info-data
+      volumes:
+      - name: support-info-data
+        persistentVolumeClaim:
+          claimName: infra-support-info-storage

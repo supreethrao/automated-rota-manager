@@ -1,7 +1,7 @@
 all: check install docker
 
 imageVersion=PASSED_FROM_CLI
-currentGoPath=~/workspace/blah
+currentGoPath=~/workspace
 
 setup:
 	@echo "setup"
