@@ -11,6 +11,10 @@ func SendMessage(messageText string) error {
 	api := slack.New(token)
 	_, _, err := api.PostMessage("core-infrastructure", messageText, slack.PostMessageParameters{
 		Username: "Botty McBotface",
+		AsUser: true,
+		UnfurlMedia: true,
+		UnfurlLinks: true,
+		EscapeText: false,
 	})
 	if err != nil {
 		fmt.Println(err)

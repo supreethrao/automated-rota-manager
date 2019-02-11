@@ -47,7 +47,7 @@ func serve() {
 	router.GET("/support/confirm/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		supportPerson := params.ByName("name")
 		if err := myTeam.SetPersonOnSupportForToday(supportPerson); err == nil {
-			slackhandler.SendMessage(fmt.Sprintf("The person to be on support today is confirmed to be: %s \n", supportPerson))
+			slackhandler.SendMessage(fmt.Sprintf("The person on support for today is confirmed to be: %s \n", supportPerson))
 			writer.WriteHeader(http.StatusAccepted)
 		} else {
 			fmt.Fprintln(writer, err)
@@ -55,21 +55,13 @@ func serve() {
 	})
 
 	router.GET("/support/override/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-		if err := myTeam.OverrideSupportPersonForToday(params.ByName("name")); err == nil {
+		supportPerson := params.ByName("name")
+		if err := myTeam.OverrideSupportPersonForToday(supportPerson); err == nil {
+			slackhandler.SendMessage(fmt.Sprintf("The person support for today was overridden. It's now: %s \n", supportPerson))
 			writer.WriteHeader(http.StatusAccepted)
 		} else {
 			fmt.Fprintln(writer, err)
 		}
-	})
-
-	router.GET("/reset", func(writer http.ResponseWriter, request *http.Request, _ httprouter.Params) {
-		myTeam.Reset()
-		writer.WriteHeader(http.StatusAccepted)
-	})
-
-	router.GET("/bot/next", func(writer http.ResponseWriter, request *http.Request, _ httprouter.Params) {
-		pickNextSupportPerson()
-		writer.WriteHeader(http.StatusNoContent)
 	})
 
 	http.Handle("/metrics", promhttp.Handler())
@@ -79,12 +71,22 @@ func serve() {
 
 func pickNextSupportPerson() error {
 	nextToSupport := rota.Next(myTeam)
-	message := fmt.Sprintf("The person chosen to be on support today is: %s. \n " +
-		"To confirm, all you have to do is to click: http://support-bot.dev.cosmic.sky/support/confirm/%s \n\n " +
-		"To select a different person, use the link http://support-bot.dev.cosmic.sky/support/confirm/<name> \n\n where: " +
-		"<name> is one of: Supreeth, Isaac, Matt, Anthony, Pete, Howard, Yorg or Dom.", nextToSupport, nextToSupport)
+
+	message := fmt.Sprintf("The person chosen to be on support today is: %s. \n "+
+		"To confirm, all you have to do is to click: http://support-bot.dev.cosmic.sky/support/confirm/%s \n\n \n"+
+		"To select a different person, click the below ordered link: \n\n %s", nextToSupport, nextToSupport, orderedRotaMessage())
 
 	return slackhandler.SendMessage(message)
+}
+
+func orderedRotaMessage() string {
+	orderedRota := ""
+
+	for ind, member := range rota.OrderedRota(myTeam) {
+		orderedRota += fmt.Sprintf("%d. http://support-bot.dev.cosmic.sky/support/confirm/%s \n", ind+1, member.Name)
+	}
+
+	return orderedRota
 }
 
 func main() {

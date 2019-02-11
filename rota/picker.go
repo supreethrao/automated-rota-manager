@@ -59,6 +59,10 @@ func Next(t Team) string {
 	return teamSupportHistory[0].Name
 }
 
+func OrderedRota(t Team) []IndividualSupportHistory {
+	return OrderedList(t.SupportHistoryForTeam())
+}
+
 func OrderedList(teamSupportHistory TeamSupportHistory) TeamSupportHistory {
 	sort.Sort(teamSupportHistory)
 	return teamSupportHistory

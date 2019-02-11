@@ -15,7 +15,7 @@ import (
 type Team interface {
 	List() []string
 	Add(newMember string) error
-	Reset()
+	AddTeam(teamMembers string) error
 	Remove(existingMember string) error
 	SupportHistoryOfIndividual(member string) IndividualSupportHistory
 	SupportHistoryForTeam() TeamSupportHistory
@@ -73,6 +73,10 @@ func (t *team) Add(newMember string) error {
 	} else {
 		return err
 	}
+}
+
+func (t *team) AddTeam(teamMembers string) error {
+	return nil
 }
 
 func (t *team) Remove(existingMember string) error {
@@ -172,13 +176,6 @@ func (t *team) OverrideSupportPersonForToday(memberName string) error {
 	supportKeys[t.SupportPersonOnDayKey(time.Now())] = []byte(memberName)
 
 	return localdb.MultiWrite(supportKeys)
-}
-
-func (t *team) Reset() {
-	team := []string{"Supreeth", "Isaac", "Matt", "Anthony", "Pete", "Howard", "Yorg", "Dom"}
-	for _, member := range team {
-		_ = t.Add(member)
-	}
 }
 
 func uintToBytes(val uint16) []byte {

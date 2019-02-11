@@ -39,7 +39,7 @@ spec:
             weight: 1
       containers:
       - name: support-bot
-        image: registry.tools.cosmic.sky/core-engineering/test-repo/support-bot:v1.0.7
+        image: registry.tools.cosmic.sky/core-engineering/test-repo/support-bot:v1.0.9
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9090
