@@ -71,8 +71,14 @@ func serve() {
 		fmt.Fprintf(writer, "The person chosen to be on support today is: %s. \n", rota.Next(myTeam))
 	})
 
-	router.GET("/support/confirm/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+	router.GET("/support/confirm/:name/:date", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		supportPerson := params.ByName("name")
+
+		if time.Now().Format("02-01-2006") != params.ByName("date") {
+			writer.Write([]byte("Illegal confirmation. Date has to be today"))
+			return
+		}
+
 		if err := myTeam.SetPersonOnSupportForToday(supportPerson); err == nil {
 			slackhandler.SendMessage(fmt.Sprintf("The person on support for today is confirmed to be: %s \n", supportPerson))
 			writer.WriteHeader(http.StatusAccepted)
@@ -96,21 +102,24 @@ func serve() {
 	log.Fatal(http.ListenAndServe(":9090", router))
 }
 
-func pickNextSupportPerson() error {
+func pickNextSupportPerson() {
 	nextToSupport := rota.Next(myTeam)
 
 	message := fmt.Sprintf("The person chosen to be on support today is: %s. \n "+
-		"To confirm, all you have to do is to click: http://support-bot.dev.cosmic.sky/support/confirm/%s \n\n \n"+
-		"To select a different person, click the below ordered link: \n\n %s", nextToSupport, nextToSupport, orderedRotaMessage())
+		"To confirm, all you have to do is to click: http://support-bot.dev.cosmic.sky/support/confirm/%s/%s \n\n \n"+
+		"To select a different person, click the below ordered link: \n\n %s", nextToSupport, nextToSupport, time.Now().Format("02-01-2006"), orderedRotaMessage())
 
-	return slackhandler.SendMessage(message)
+	if err := slackhandler.SendMessage(message); err != nil {
+		log.Panic("Unable to send slack message", err)
+	}
 }
 
 func orderedRotaMessage() string {
 	orderedRota := ""
+	today := time.Now().Format("02-01-2006")
 
 	for ind, member := range rota.OrderedRota(myTeam) {
-		orderedRota += fmt.Sprintf("%d. http://support-bot.dev.cosmic.sky/support/confirm/%s \n", ind+1, member.Name)
+		orderedRota += fmt.Sprintf("%d. http://support-bot.dev.cosmic.sky/support/confirm/%s/%s \n", ind+1, member.Name, today)
 	}
 
 	return orderedRota
