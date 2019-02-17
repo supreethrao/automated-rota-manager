@@ -16,9 +16,9 @@ This project uses dep for dependency management. use `dep ensure` command to ens
 
 4. GET - `/support/next` - Evaluates and prints the next person in the rota who should be on support
 
-5. GET - `/support/confirm/:name` - If the person evaluated by `/support/next` is to be confirmed (if not on holiday et al), this endpoint confirms and updates the relevant tables in the database with the details. It's a GET method only to be able to achieve a click and execute functionality. Will print a message saying a person <name> has already been assigned if invoked multiple times on the day.
+5. GET - `/support/confirm/:name/:date` - If the person evaluated by `/support/next` is to be confirmed (if not on holiday et al), this endpoint confirms and updates the relevant tables in the database with the details. It's a GET method only to be able to achieve a click and execute functionality. Will print a message saying a person <name> has already been assigned if invoked multiple times on the day.
 
-6. GET - `support/override/:name` - In order to override the set support person for the day (for whatever reason), this endpoint can be invoked and this will change the database details to the new person and adjusts the details of the person who was previously assigned for the day
+6. GET - `support/override/:name` - In order to override the set support person for the day (for whatever reason), this endpoint can be invoked and this will change the database details to the new person and adjusts the details of the person who was previously assigned for the day. Override is always for the current day.
 
 7. POST - `outofoffice/:name/:from/:to` - Records the out of office dates for a person. The from and to should be in the format `DD-MM-YYYY`. The person out of office will be skipped from support rota. The to date is one day before the return date.
 
