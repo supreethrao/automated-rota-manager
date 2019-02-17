@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sky-uk/support-bot/helpers"
 	"github.com/sky-uk/support-bot/localdb"
 	"github.com/sky-uk/support-bot/rota"
 	"github.com/sky-uk/support-bot/rota/slackhandler"
@@ -17,7 +18,11 @@ import (
 var myTeam = rota.NewTeam("core-infrastructure")
 
 var dailySupportPicker = scheduler.NewSchedule("0 0 9 * * 1-5", func() {
-	pickNextSupportPerson()
+	if isHoliday, whichOne := helpers.IsTodayHoliday(); isHoliday {
+		log.Printf("Today is %s and hence skipping the support pick \n", whichOne)
+	} else {
+		pickNextSupportPerson()
+	}
 })
 
 func serve() {
@@ -79,6 +84,12 @@ func serve() {
 			return
 		}
 
+		if isHoliday, whichOne := helpers.IsTodayHoliday(); isHoliday {
+			writer.WriteHeader(http.StatusForbidden)
+			writer.Write([]byte(fmt.Sprintf("Cheeky attempt to set support for a holiday. Not happening as today is %s \n", whichOne)))
+			return
+		}
+
 		if err := myTeam.SetPersonOnSupportForToday(supportPerson); err == nil {
 			slackhandler.SendMessage(fmt.Sprintf("The person on support for today is confirmed to be: %s \n", supportPerson))
 			writer.WriteHeader(http.StatusAccepted)
@@ -89,6 +100,13 @@ func serve() {
 
 	router.GET("/support/override/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		supportPerson := params.ByName("name")
+
+		if isHoliday, whichOne := helpers.IsTodayHoliday(); isHoliday {
+			writer.WriteHeader(http.StatusForbidden)
+			writer.Write([]byte(fmt.Sprintf("Cheeky attempt to set support for a holiday. Not happening as today is %s \n", whichOne)))
+			return
+		}
+
 		if err := myTeam.OverrideSupportPersonForToday(supportPerson); err == nil {
 			slackhandler.SendMessage(fmt.Sprintf("The person support for today was overridden. It's now: %s \n", supportPerson))
 			writer.WriteHeader(http.StatusAccepted)
