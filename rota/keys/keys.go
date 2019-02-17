@@ -9,6 +9,7 @@ type Keys interface {
 	SupportDaysCounterKey(memberName string) string
 	SupportPersonOnDayKey(supportDay time.Time) string
 	LatestDayOnSupportKey(memberName string) string
+	OutOfOfficeKey(memberName string) (string, string)
 }
 
 type keys struct {
@@ -30,6 +31,11 @@ func (key *keys) SupportPersonOnDayKey(supportDay time.Time) string {
 
 func (key *keys) LatestDayOnSupportKey(memberName string) string {
 	return key.rootPrefix + "::latest-day::" + memberName
+}
+
+func (key *keys) OutOfOfficeKey(memberName string) (string, string) {
+	keyBase := key.rootPrefix + "::out_of_office::" + memberName
+	return keyBase + "::from_date", keyBase + "::to_date"
 }
 
 func NewKey(rootPrefix string) Keys {

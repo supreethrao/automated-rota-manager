@@ -8,6 +8,7 @@ import (
 	"github.com/sky-uk/support-bot/rota_test/helper"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestPicker(t *testing.T) {
@@ -25,6 +26,9 @@ var _ = Describe("Test suite for logic of picking next", func() {
 		for _, member := range helper.TestTeamMembers {
 			Expect(localdb.Remove(myTeam.SupportDaysCounterKey(member))).To(Succeed())
 			Expect(localdb.Remove(myTeam.LatestDayOnSupportKey(member))).To(Succeed())
+			oooFrom, oooTo := myTeam.OutOfOfficeKey(member)
+			Expect(localdb.Remove(oooFrom)).To(Succeed())
+			Expect(localdb.Remove(oooTo)).To(Succeed())
 		}
 		Expect(localdb.Write(myTeam.TeamKey(), helper.TestTeamMembersListYaml))
 	})
@@ -78,4 +82,44 @@ var _ = Describe("Test suite for logic of picking next", func() {
 			Expect(nextSupportPerson).To(Equal("person2"))
 		})
 	})
+
+	Context("Skip people who are out of office", func() {
+		It("Skip the selected person if they are out of office", func() {
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person1"), helper.Uint16ToBytes(4))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person2"), helper.Uint16ToBytes(6))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("third person"), helper.Uint16ToBytes(3))).To(Succeed())
+
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("person1"), []byte(helper.DaysBeforeToday(3)))).To(Succeed())
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("person2"), []byte(helper.DaysBeforeToday(4)))).To(Succeed())
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("third person"), []byte(helper.DaysBeforeToday(5)))).To(Succeed())
+
+			oooFrom, oooTo := myTeam.OutOfOfficeKey("third person")
+
+			Expect(localdb.Write(oooFrom, timeToBytes(time.Now().Add(-time.Hour * 24))))
+			Expect(localdb.Write(oooTo, timeToBytes(time.Now().Add(time.Hour * 24))))
+
+			Expect(rota.Next(myTeam)).To(Equal("person1"))
+		})
+
+		It("Skip the selected person who is off for the day", func() {
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person1"), helper.Uint16ToBytes(4))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person2"), helper.Uint16ToBytes(6))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("third person"), helper.Uint16ToBytes(3))).To(Succeed())
+
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("person1"), []byte(helper.DaysBeforeToday(3)))).To(Succeed())
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("person2"), []byte(helper.DaysBeforeToday(4)))).To(Succeed())
+			Expect(localdb.Write(myTeam.LatestDayOnSupportKey("third person"), []byte(helper.DaysBeforeToday(5)))).To(Succeed())
+
+			oooFrom, oooTo := myTeam.OutOfOfficeKey("third person")
+
+			Expect(localdb.Write(oooFrom, timeToBytes(time.Now())))
+			Expect(localdb.Write(oooTo, timeToBytes(time.Now())))
+
+			Expect(rota.Next(myTeam)).To(Equal("person1"))
+		})
+	})
 })
+
+func timeToBytes(t time.Time) []byte {
+	return []byte(t.Format("02-01-2006"))
+}

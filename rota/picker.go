@@ -27,6 +27,34 @@ func (history TeamSupportHistory) Less(i, j int) bool {
 	return history[i].DaysSupported < history[j].DaysSupported
 }
 
+func Next(t Team) string {
+	teamSupportHistory := OrderedList(t.SupportHistoryForTeam())
+
+	if teamSupportHistory.Len() < 1 {
+		return "UNKNOWN"
+	}
+
+	for _, individual := range teamSupportHistory {
+		if differenceBetweenDays(individual.LatestSupportDay, today()) > 2 {
+			probablePerson := individual.Name
+
+			if t.IsAvailable(probablePerson) {
+				return probablePerson
+			}
+		}
+	}
+	return "UNKNOWN"
+}
+
+func OrderedRota(t Team) []IndividualSupportHistory {
+	return OrderedList(t.SupportHistoryForTeam())
+}
+
+func OrderedList(teamSupportHistory TeamSupportHistory) TeamSupportHistory {
+	sort.Sort(teamSupportHistory)
+	return teamSupportHistory
+}
+
 func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) float64 {
 	firstDay, e1 := time.Parse("02-01-2006", ddmmyyyyStr1)
 	if e1 != nil {
@@ -41,29 +69,4 @@ func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) float64 {
 
 func today() string {
 	return time.Now().Format("02-01-2006")
-}
-
-func Next(t Team) string {
-	teamSupportHistory := OrderedList(t.SupportHistoryForTeam())
-
-	if teamSupportHistory.Len() < 1 {
-		return "UNKNOWN"
-	}
-
-	for _, individual := range teamSupportHistory {
-		if differenceBetweenDays(individual.LatestSupportDay, today()) > 2 {
-			return individual.Name
-		}
-	}
-
-	return teamSupportHistory[0].Name
-}
-
-func OrderedRota(t Team) []IndividualSupportHistory {
-	return OrderedList(t.SupportHistoryForTeam())
-}
-
-func OrderedList(teamSupportHistory TeamSupportHistory) TeamSupportHistory {
-	sort.Sort(teamSupportHistory)
-	return teamSupportHistory
 }

@@ -11,11 +11,12 @@ import (
 	"github.com/sky-uk/support-bot/scheduler"
 	"log"
 	"net/http"
+	"time"
 )
 
 var myTeam = rota.NewTeam("core-infrastructure")
 
-var dailySupportPicker = scheduler.NewSchedule("0 0 10 * * 1-5", func() {
+var dailySupportPicker = scheduler.NewSchedule("0 0 9 * * 1-5", func() {
 	pickNextSupportPerson()
 })
 
@@ -38,6 +39,32 @@ func serve() {
 		if err := myTeam.Add(params.ByName("name")); err != nil {
 			_, _ = fmt.Fprint(writer, )
 		}
+	})
+
+	router.POST("/outofoffice/:name/:from/:to", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+		fromDate, errFrom := time.Parse("02-01-2006", params.ByName("from"))
+		toDate, errTo := time.Parse("02-01-2006", params.ByName("to"))
+
+		if errFrom != nil || errTo != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte("Invalid date format. From and To date should be in the format DD-MM-YYYY \n"))
+		} else {
+			if setError := myTeam.SetOutOfOffice(params.ByName("name"), fromDate, toDate); setError != nil {
+				writer.WriteHeader(http.StatusInternalServerError)
+				// Need to do error mapping here
+				fmt.Fprintln(writer, setError)
+			} else {
+				writer.WriteHeader(http.StatusCreated)
+			}
+		}
+	})
+
+	router.GET("/outofoffice", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+		writer.Write(myTeam.GetTeamOutOfOffice())
+	})
+
+	router.GET("/outofoffice/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
+		writer.Write(myTeam.GetOutOfOffice(params.ByName("name")))
 	})
 
 	router.GET("/support/next", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {

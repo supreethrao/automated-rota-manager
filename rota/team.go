@@ -2,6 +2,7 @@ package rota
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -22,6 +23,10 @@ type Team interface {
 	SupportPersonOnTheDay(date time.Time) string
 	SetPersonOnSupportForToday(memberName string) error
 	OverrideSupportPersonForToday(memberName string) error
+	SetOutOfOffice(memberName string, from time.Time, to time.Time) error
+	GetOutOfOffice(memberName string) []byte
+	GetTeamOutOfOffice() []byte
+	IsAvailable(name string) bool
 	keys.Keys
 }
 
@@ -29,6 +34,11 @@ type Team interface {
 type team struct {
 	name string
 	keys.Keys
+}
+
+type outofoffice struct {
+	Name        string
+	OutOfOffice string
 }
 
 type teamMembers struct {
@@ -176,6 +186,69 @@ func (t *team) OverrideSupportPersonForToday(memberName string) error {
 	supportKeys[t.SupportPersonOnDayKey(time.Now())] = []byte(memberName)
 
 	return localdb.MultiWrite(supportKeys)
+}
+
+func (t *team) SetOutOfOffice(memberName string, from time.Time, to time.Time) error {
+	fromDate := from.Format("02-01-2006")
+	toDate := to.Format("02-01-2006")
+
+	fromKey, toKey := t.OutOfOfficeKey(memberName)
+
+	return localdb.MultiWrite(map[string][]byte{
+		fromKey: []byte(fromDate),
+		toKey:   []byte(toDate),
+	})
+}
+
+func (t *team) GetOutOfOffice(memberName string) []byte {
+	return t.outOfOffice([]string{memberName})
+}
+
+func (t *team) GetTeamOutOfOffice() []byte {
+	return t.outOfOffice(t.List())
+}
+
+func (t *team) IsAvailable(memberName string) bool {
+	today := time.Now().Format("02-01-2006")
+	fromKey, toKey := t.OutOfOfficeKey(memberName)
+
+	from, errFrom := localdb.Read(fromKey)
+	to, errTo := localdb.Read(toKey)
+
+	if errFrom == nil && errTo == nil {
+		fromDate, _ := time.Parse("02-01-2006", string(from))
+		toDate, _ := time.Parse("02-01-2006", string(to))
+		presentDate, _ := time.Parse("02-01-2006", today)
+
+		return presentDate.Before(fromDate) || presentDate.After(toDate)
+	}
+
+	if errFrom == badger.ErrKeyNotFound || errTo == badger.ErrKeyNotFound {
+		log.Printf("No out of office dates registered for %s \n", memberName)
+	}
+	return true
+}
+
+func (t *team) outOfOffice(names []string) []byte {
+
+	var oooRecords []outofoffice
+
+	for _, memberName := range names {
+		fromKey, toKey := t.OutOfOfficeKey(memberName)
+
+		from, errFrom := localdb.Read(fromKey)
+		to, errTo := localdb.Read(toKey)
+
+		if errFrom == nil && errTo == nil {
+			oooRecords = append(oooRecords, outofoffice{memberName, "From " + string(from) + " To " + string(to)})
+		}
+	}
+
+	if data, err := json.Marshal(&oooRecords); err != nil {
+		return []byte("Unable to retrieve")
+	} else {
+		return data
+	}
 }
 
 func uintToBytes(val uint16) []byte {
