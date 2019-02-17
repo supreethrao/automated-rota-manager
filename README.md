@@ -20,6 +20,12 @@ This project uses dep for dependency management. use `dep ensure` command to ens
 
 6. GET - `support/override/:name` - In order to override the set support person for the day (for whatever reason), this endpoint can be invoked and this will change the database details to the new person and adjusts the details of the person who was previously assigned for the day
 
+7. POST - `outofoffice/:name/:from/:to` - Records the out of office dates for a person. The from and to should be in the format `DD-MM-YYYY`. The person out of office will be skipped from support rota. The to date is one day before the return date.
+
+8. GET - `outofoffice` - Gets the out of office schedule for the team
+
+9. GET - `outofoffice/:name` - Gets the out of office schedule for the specific team member
+
 ## TODO
 
 - [ ] Create a namespace to host this application along with having an EBS volume to persist the support information
