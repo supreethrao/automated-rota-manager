@@ -17,7 +17,7 @@ import (
 
 var myTeam = rota.NewTeam("core-infrastructure")
 
-var dailySupportPicker = scheduler.NewSchedule("0 0 9 * * 1-5", func() {
+var dailySupportPicker = scheduler.NewSchedule("0 0 10 * * 1-5", func() {
 	if isHoliday, whichOne := helpers.IsTodayHoliday(); isHoliday {
 		log.Printf("Today is %s and hence skipping the support pick \n", whichOne)
 	} else {
@@ -53,14 +53,22 @@ func serve() {
 		if errFrom != nil || errTo != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			writer.Write([]byte("Invalid date format. From and To date should be in the format DD-MM-YYYY \n"))
+			return
+		}
+
+		dateToday, _ := time.Parse("02-01-2006", time.Now().Format("02-01-2006"))
+		if fromDate.After(toDate) || toDate.Before(dateToday) {
+			writer.WriteHeader(http.StatusBadRequest)
+			writer.Write([]byte("Invalid date. From date cannot be greater than To date and also To date cannot be in the past"))
+			return
+		}
+
+		if setError := myTeam.SetOutOfOffice(params.ByName("name"), fromDate, toDate); setError != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			// Need to do error mapping here
+			fmt.Fprintln(writer, setError)
 		} else {
-			if setError := myTeam.SetOutOfOffice(params.ByName("name"), fromDate, toDate); setError != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				// Need to do error mapping here
-				fmt.Fprintln(writer, setError)
-			} else {
-				writer.WriteHeader(http.StatusCreated)
-			}
+			writer.WriteHeader(http.StatusCreated)
 		}
 	})
 
