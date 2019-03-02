@@ -25,17 +25,3 @@ This project uses dep for dependency management. use `dep ensure` command to ens
 8. GET - `outofoffice` - Gets the out of office schedule for the team
 
 9. GET - `outofoffice/:name` - Gets the out of office schedule for the specific team member
-
-## TODO
-
-- [ ] Create a namespace to host this application along with having an EBS volume to persist the support information
-- [ ] Make it part of a pipeline so that deployment et al can be automated
-- [ ] Create a cron functionality so that this app can post in details of the next person on support and links to confirm and override with reasonable details. This will use the slack token and posts into `core-infrastructure` channel everyday at 10 a.m
-- [ ] Edit title in the `core-infrastructure` for the person on support details from the `confirm` and `override` endpoints.
-- [ ] More endpoints to reset the details of a particular team member
-- [ ] Use slack usernames so that the user @ could be used in the slack channel notification
-- [ ] Add more test cases
-- [ ] Support go binary in multiple environments
-
-## Known issues
-1. When the `override` endpoint is called, the last supported day for the person currently assigned will change to the initial value (`31-12-2006`) which is incorrect. Need to put in the logic to obtain the previous time to today that person was assigned on to support
