@@ -5,9 +5,10 @@ currentGoPath=~/workspace
 
 setup:
 	@echo "setup"
-	@go get github.com/golang/lint/golint
+	@go get golang.org/x/lint/golint
 	@go get golang.org/x/tools/cmd/goimports
 	@go get github.com/golang/dep/cmd/dep
+	@go get github.com/onsi/ginkgo/ginkgo
 	dep ensure
 
 check:
