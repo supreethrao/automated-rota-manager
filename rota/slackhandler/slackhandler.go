@@ -19,7 +19,7 @@ func SendMessage(messageText string) error {
 		EscapeText: false,
 	})
 	if err != nil {
-	    fmt.Println("Failed to post Slack message")
+	    	fmt.Println("Failed to post Slack message")
 		fmt.Println(err)
 		return err
 	}
