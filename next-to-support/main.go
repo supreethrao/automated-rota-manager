@@ -17,7 +17,8 @@ import (
 
 var myTeam = rota.NewTeam("core-infrastructure")
 
-var dailySupportPicker = scheduler.NewSchedule("0 0 10 * * 1-5", func() {
+var cronSchedule = helpers.Getenv("CRON_SCHEDULE", "0 0 10 * * 1-5")
+var dailySupportPicker = scheduler.NewSchedule(cronSchedule, func() {
 	if isHoliday, whichOne := helpers.IsTodayHoliday(); isHoliday {
 		log.Printf("Today is %s and hence skipping the support pick \n", whichOne)
 	} else {
@@ -130,22 +131,23 @@ func serve() {
 
 func pickNextSupportPerson() {
 	nextToSupport := rota.Next(myTeam)
+	host := helpers.Getenv("SUPPORT_BOT_HOST", "http://support-bot.dev.cosmic.sky")
 
 	message := fmt.Sprintf("The person chosen to be on support today is: %s. \n "+
-		"To confirm, all you have to do is to click: http://support-bot.dev.cosmic.sky/support/confirm/%s/%s \n\n \n"+
-		"To select a different person, click the below ordered link: \n\n %s", nextToSupport, nextToSupport, time.Now().Format("02-01-2006"), orderedRotaMessage())
+		"To confirm, all you have to do is to click: %s/support/confirm/%s/%s \n\n \n"+
+		"To select a different person, click the below ordered link: \n\n %s", nextToSupport, host, nextToSupport, time.Now().Format("02-01-2006"), orderedRotaMessage(host))
 
 	if err := slackhandler.SendMessage(message); err != nil {
 		log.Panic("Unable to send slack message", err)
 	}
 }
 
-func orderedRotaMessage() string {
+func orderedRotaMessage(host string) string {
 	orderedRota := ""
 	today := time.Now().Format("02-01-2006")
 
 	for ind, member := range rota.OrderedRota(myTeam) {
-		orderedRota += fmt.Sprintf("%d. http://support-bot.dev.cosmic.sky/support/confirm/%s/%s \n", ind+1, member.Name, today)
+		orderedRota += fmt.Sprintf("%d. %s/support/confirm/%s/%s \n", ind+1, host, member.Name, today)
 	}
 
 	return orderedRota
