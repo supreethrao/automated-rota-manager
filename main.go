@@ -3,16 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sky-uk/support-bot/helpers"
-	"github.com/sky-uk/support-bot/localdb"
-	"github.com/sky-uk/support-bot/rota"
-	"github.com/sky-uk/support-bot/rota/slackhandler"
-	"github.com/sky-uk/support-bot/scheduler"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/supreethrao/support-bot/helpers"
+	"github.com/supreethrao/support-bot/localdb"
+	"github.com/supreethrao/support-bot/rota"
+	"github.com/supreethrao/support-bot/scheduler"
+	"github.com/supreethrao/support-bot/slackhandler"
 )
 
 var myTeam = rota.NewTeam("core-infrastructure")
@@ -37,13 +38,13 @@ func serve() {
 
 	router.DELETE("/members/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		if err := myTeam.Remove(params.ByName("name")); err != nil {
-			_, _ = fmt.Fprint(writer, )
+			_, _ = fmt.Fprint(writer)
 		}
 	})
 
 	router.POST("/members/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		if err := myTeam.Add(params.ByName("name")); err != nil {
-			_, _ = fmt.Fprint(writer, )
+			_, _ = fmt.Fprint(writer)
 		}
 	})
 

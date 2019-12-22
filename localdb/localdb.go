@@ -1,14 +1,15 @@
 package localdb
 
 import (
-	"github.com/dgraph-io/badger"
 	"log"
 	"os"
 	"regexp"
+
+	"github.com/dgraph-io/badger"
 )
 
 const (
-	dbLocation string = "/badger/data"
+	dbLocation string = "/tmp/data"
 )
 
 var sequences = make(map[string]*badger.Sequence)
@@ -122,7 +123,7 @@ func NextSeq(memberName string) uint64 {
 		if err := NewSeq(memberName); err == nil {
 			if next, err := sequences[memberName].Next(); err == nil {
 				return next
-			} else{
+			} else {
 				panic("Unable to obtain the next sequence")
 			}
 		} else {

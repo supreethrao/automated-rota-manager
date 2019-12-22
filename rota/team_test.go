@@ -1,19 +1,15 @@
 package rota_test
 
 import (
+	"time"
+
+	"gopkg.in/yaml.v2"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sky-uk/support-bot/localdb"
-	"github.com/sky-uk/support-bot/rota"
-	"github.com/sky-uk/support-bot/rota_test/helper"
-	"testing"
-	"time"
+	"github.com/supreethrao/support-bot/localdb"
+	"github.com/supreethrao/support-bot/rota"
 )
-
-func TestTeam(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test suite for team")
-}
 
 var _ = Describe("CRUD of team members", func() {
 
@@ -24,30 +20,30 @@ var _ = Describe("CRUD of team members", func() {
 
 	BeforeEach(func() {
 		Expect(localdb.Remove(myTeam.TeamKey())).To(Succeed())
-		for _, member := range helper.TestTeamMembers {
+		for _, member := range TestTeamMembers {
 			Expect(localdb.Remove(myTeam.SupportDaysCounterKey(member))).To(Succeed())
 			Expect(localdb.Remove(myTeam.LatestDayOnSupportKey(member))).To(Succeed())
 			Expect(localdb.Remove(myTeam.SupportPersonOnDayKey(time.Now()))).To(Succeed())
 		}
-		Expect(localdb.Write(myTeam.TeamKey(), helper.TestTeamMembersListYaml))
+		Expect(localdb.Write(myTeam.TeamKey(), TestTeamMembersListYaml))
 	})
 
 	Context("Read team members", func() {
 		It("List gets data from the members file", func() {
-			Expect(myTeam.List()).To(Equal([] string{"person1", "person2", "third person"}))
+			Expect(myTeam.List()).To(Equal([]string{"person1", "person2", "third person"}))
 		})
 	})
 
 	Context("Adding new team members", func() {
 		It("Add new team member adds the member to the list", func() {
 			Expect(myTeam.Add("new member")).To(Succeed())
-			Expect(myTeam.List()).To(Equal([] string{"person1", "person2", "third person", "new member"}))
+			Expect(myTeam.List()).To(Equal([]string{"person1", "person2", "third person", "new member"}))
 		})
 
 		It("Add new team member should not fail if the member already exists", func() {
 			personToAdd := "third person"
 			Expect(myTeam.Add(personToAdd)).To(Succeed())
-			Expect(myTeam.List()).To(Equal([] string{"person1", "person2", "third person"}))
+			Expect(myTeam.List()).To(Equal([]string{"person1", "person2", "third person"}))
 		})
 
 		It("Add new team member initialise their support counter key to 0", func() {
@@ -58,7 +54,7 @@ var _ = Describe("CRUD of team members", func() {
 
 		It("Adding an existing team member again should not reset the supported days ", func() {
 			existingTeamMember := "person1"
-			Expect(localdb.Write(myTeam.SupportDaysCounterKey(existingTeamMember), helper.Uint16ToBytes(7))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey(existingTeamMember), Uint16ToBytes(7))).To(Succeed())
 
 			Expect(myTeam.Add(existingTeamMember)).To(Succeed())
 			Expect(myTeam.SupportHistoryOfIndividual(existingTeamMember).DaysSupported).To(Equal(uint16(7)))
@@ -68,25 +64,25 @@ var _ = Describe("CRUD of team members", func() {
 	Context("Removing team members", func() {
 		It("Removing existing team member returns success", func() {
 			Expect(myTeam.Remove("third person")).To(Succeed())
-			Expect(myTeam.List()).To(Equal([] string{"person1", "person2"}))
+			Expect(myTeam.List()).To(Equal([]string{"person1", "person2"}))
 		})
 		It("Removing non-existing team member returns success", func() {
 			Expect(myTeam.Remove("non-existent person")).To(Succeed())
-			Expect(myTeam.List()).To(Equal([] string{"person1", "person2", "third person"}))
+			Expect(myTeam.List()).To(Equal([]string{"person1", "person2", "third person"}))
 		})
 	})
 
 	Context("Setting the person on support", func() {
 		It("The person being set on support will have the relevant keys updated", func() {
 			// given
-			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person1"), helper.Uint16ToBytes(7))).To(Succeed())
+			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person1"), Uint16ToBytes(7))).To(Succeed())
 
 			//when
 			Expect(myTeam.SetPersonOnSupportForToday("person1")).To(Succeed())
 
 			//then
-			Expect(localdb.Read(myTeam.SupportDaysCounterKey("person1"))).To(Equal(helper.Uint16ToBytes(8)))
-			Expect(localdb.Read(myTeam.LatestDayOnSupportKey("person1"))).To(Equal([]byte(helper.Today())))
+			Expect(localdb.Read(myTeam.SupportDaysCounterKey("person1"))).To(Equal(Uint16ToBytes(8)))
+			Expect(localdb.Read(myTeam.LatestDayOnSupportKey("person1"))).To(Equal([]byte(Today())))
 			Expect(localdb.Read(myTeam.SupportPersonOnDayKey(time.Now()))).To(Equal([]byte("person1")))
 		})
 	})
@@ -106,3 +102,15 @@ var _ = Describe("CRUD of team members", func() {
 	})
 })
 
+type testTeamMembersYaml struct {
+	Members []string `yaml:"members"`
+}
+
+var TestTeamMembers = []string{"person1", "person2", "third person"}
+var TestTeamMembersListYaml = func() []byte {
+	if yml, err := yaml.Marshal(testTeamMembersYaml{TestTeamMembers}); err == nil {
+		return yml
+	} else {
+		panic(err)
+	}
+}()

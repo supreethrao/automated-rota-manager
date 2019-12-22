@@ -2,8 +2,9 @@ package slackhandler
 
 import (
 	"fmt"
+
 	"github.com/nlopes/slack"
-	"github.com/sky-uk/support-bot/helpers"
+	"github.com/supreethrao/support-bot/helpers"
 )
 
 func SendMessage(messageText string) error {
@@ -12,18 +13,17 @@ func SendMessage(messageText string) error {
 	username := helpers.Getenv("SLACK_USERNAME", "Botty McBotface")
 	api := slack.New(token)
 	_, _, err := api.PostMessage(channel, messageText, slack.PostMessageParameters{
-		Username: username,
-		AsUser: true,
+		Username:    username,
+		AsUser:      true,
 		UnfurlMedia: true,
 		UnfurlLinks: true,
-		EscapeText: false,
+		EscapeText:  false,
 	})
 	if err != nil {
-	    	fmt.Println("Failed to post Slack message")
+		fmt.Println("Failed to post Slack message")
 		fmt.Println(err)
 		return err
 	}
-
 
 	return nil
 }

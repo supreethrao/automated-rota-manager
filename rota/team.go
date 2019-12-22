@@ -4,13 +4,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
-	"github.com/sky-uk/support-bot/localdb"
-	"github.com/sky-uk/support-bot/rota/keys"
-	"gopkg.in/yaml.v2"
 	"log"
 	"time"
+
+	"github.com/dgraph-io/badger"
+	"github.com/pkg/errors"
+	"github.com/supreethrao/support-bot/keys"
+	"github.com/supreethrao/support-bot/localdb"
+	"gopkg.in/yaml.v2"
 )
 
 type Team interface {
