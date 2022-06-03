@@ -3,8 +3,9 @@ package slackhandler
 import (
 	"fmt"
 
+	"github.com/supreethrao/automated-rota-manager/pkg/helpers"
+
 	"github.com/nlopes/slack"
-	"github.com/supreethrao/support-bot/helpers"
 )
 
 func SendMessage(messageText string) error {
@@ -29,5 +30,11 @@ func SendMessage(messageText string) error {
 }
 
 func SetChannelTopic(topicString string) error {
-	return nil
+	token := helpers.Getenv("SLACK_TOKEN", "")
+	channel := helpers.Getenv("SLACK_CHANNEL", "core-infrastructure")
+	api := slack.New(token)
+
+	_, err := api.SetChannelTopic(channel, topicString)
+
+	return err
 }

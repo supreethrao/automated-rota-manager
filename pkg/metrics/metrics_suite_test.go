@@ -9,5 +9,5 @@ import (
 
 func TestMetricsLogic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test Suite for support bot metrics")
+	RunSpecs(t, "Test Suite for rota manager metrics")
 }

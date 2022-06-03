@@ -35,7 +35,7 @@ func init() {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, _ := ioutil.ReadAll(resp.Body)
 
 	placeHolder := map[string]locationSpecificHolidays{}
 	currentYear := strconv.Itoa(time.Now().Year())

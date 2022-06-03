@@ -1,29 +1,29 @@
 package rota_test
 
 import (
+	"github.com/supreethrao/automated-rota-manager/pkg/rota"
 	"time"
 
+	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
 	"gopkg.in/yaml.v2"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/supreethrao/support-bot/localdb"
-	"github.com/supreethrao/support-bot/rota"
 )
 
 var _ = Describe("CRUD of team members", func() {
 
-	var myTeam rota.Team = nil
+	var myTeam *rota.Team
 	BeforeSuite(func() {
 		myTeam = rota.NewTeam("test_team")
 	})
 
 	BeforeEach(func() {
 		Expect(localdb.Remove(myTeam.TeamKey())).To(Succeed())
-		for _, member := range TestTeamMembers {
-			Expect(localdb.Remove(myTeam.SupportDaysCounterKey(member))).To(Succeed())
-			Expect(localdb.Remove(myTeam.LatestDayOnSupportKey(member))).To(Succeed())
-			Expect(localdb.Remove(myTeam.SupportPersonOnDayKey(time.Now()))).To(Succeed())
+		for _, member := range testTeamMembers {
+			Expect(localdb.Remove(myTeam.AccruedDaysCounterKey(member))).To(Succeed())
+			Expect(localdb.Remove(myTeam.LatestDayPickedKey(member))).To(Succeed())
+			Expect(localdb.Remove(myTeam.PersonPickedOnDayKey(time.Now()))).To(Succeed())
 		}
 		Expect(localdb.Write(myTeam.TeamKey(), TestTeamMembersListYaml))
 	})
@@ -46,18 +46,18 @@ var _ = Describe("CRUD of team members", func() {
 			Expect(myTeam.List()).To(Equal([]string{"person1", "person2", "third person"}))
 		})
 
-		It("Add new team member initialise their support counter key to 0", func() {
+		It("Add new team member initialise their accrued days counter key to 0", func() {
 			newTeamMember := "fourth person"
 			Expect(myTeam.Add(newTeamMember)).To(Succeed())
-			Expect(myTeam.SupportHistoryOfIndividual(newTeamMember).DaysSupported).To(Equal(uint16(0)))
+			Expect(myTeam.HistoryOfIndividual(newTeamMember).DaysAccrued).To(Equal(uint16(0)))
 		})
 
-		It("Adding an existing team member again should not reset the supported days ", func() {
+		It("Adding an existing team member again should not reset the accrued days ", func() {
 			existingTeamMember := "person1"
-			Expect(localdb.Write(myTeam.SupportDaysCounterKey(existingTeamMember), Uint16ToBytes(7))).To(Succeed())
+			Expect(localdb.Write(myTeam.AccruedDaysCounterKey(existingTeamMember), Uint16ToBytes(7))).To(Succeed())
 
 			Expect(myTeam.Add(existingTeamMember)).To(Succeed())
-			Expect(myTeam.SupportHistoryOfIndividual(existingTeamMember).DaysSupported).To(Equal(uint16(7)))
+			Expect(myTeam.HistoryOfIndividual(existingTeamMember).DaysAccrued).To(Equal(uint16(7)))
 		})
 	})
 
@@ -72,18 +72,18 @@ var _ = Describe("CRUD of team members", func() {
 		})
 	})
 
-	Context("Setting the person on support", func() {
-		It("The person being set on support will have the relevant keys updated", func() {
+	Context("Setting the person picked", func() {
+		It("The person picked will have the relevant keys updated", func() {
 			// given
-			Expect(localdb.Write(myTeam.SupportDaysCounterKey("person1"), Uint16ToBytes(7))).To(Succeed())
+			Expect(localdb.Write(myTeam.AccruedDaysCounterKey("person1"), Uint16ToBytes(7))).To(Succeed())
 
 			//when
-			Expect(myTeam.SetPersonOnSupportForToday("person1")).To(Succeed())
+			Expect(myTeam.SetPersonPickedForToday("person1")).To(Succeed())
 
 			//then
-			Expect(localdb.Read(myTeam.SupportDaysCounterKey("person1"))).To(Equal(Uint16ToBytes(8)))
-			Expect(localdb.Read(myTeam.LatestDayOnSupportKey("person1"))).To(Equal([]byte(Today())))
-			Expect(localdb.Read(myTeam.SupportPersonOnDayKey(time.Now()))).To(Equal([]byte("person1")))
+			Expect(localdb.Read(myTeam.AccruedDaysCounterKey("person1"))).To(Equal(Uint16ToBytes(8)))
+			Expect(localdb.Read(myTeam.LatestDayPickedKey("person1"))).To(Equal([]byte(Today())))
+			Expect(localdb.Read(myTeam.PersonPickedOnDayKey(time.Now()))).To(Equal([]byte("person1")))
 		})
 	})
 
@@ -106,9 +106,9 @@ type testTeamMembersYaml struct {
 	Members []string `yaml:"members"`
 }
 
-var TestTeamMembers = []string{"person1", "person2", "third person"}
+var testTeamMembers = []string{"person1", "person2", "third person"}
 var TestTeamMembersListYaml = func() []byte {
-	if yml, err := yaml.Marshal(testTeamMembersYaml{TestTeamMembers}); err == nil {
+	if yml, err := yaml.Marshal(testTeamMembersYaml{testTeamMembers}); err == nil {
 		return yml
 	} else {
 		panic(err)

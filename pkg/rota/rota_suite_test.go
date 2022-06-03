@@ -9,5 +9,5 @@ import (
 
 func TestRotaLogic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test Suite for support rota")
+	RunSpecs(t, "Test Suite for rota manager")
 }

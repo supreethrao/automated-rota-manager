@@ -22,7 +22,7 @@ func init() {
 		}
 	}
 
-	isMatch, err := regexp.MatchString("drwx.*", info.Mode().String())
+	isMatch, _ := regexp.MatchString("drwx.*", info.Mode().String())
 	if !isMatch {
 		log.Fatalf("The directory %s need to have read write execute permission", dbLocation)
 	}

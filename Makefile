@@ -1,6 +1,10 @@
+CGO_ENABLED := 0
+export CGO_ENABLED
+
 files := $(shell find . -name '*.go' -print)
 pkgs := $(shell go list ./...)
 
+moduleDir := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 build_dir := $(moduleDir)/build
 dist_dir := $(moduleDir)/dist
 
@@ -10,7 +14,7 @@ git_tag := $(shell git tag --points-at=$(git_rev) | egrep -o "[0-9]+\.[0-9]+\.[0
 version := $(if $(git_tag),v$(git_tag),dev-$(git_rev))
 release_version=$(if $(releaseVersion),$(releaseVersion),$(version))
 build_time := $(shell date -u)
-ldflags := -X "github.com/supreethrao/support-bot/cmd.version=$(release_version)" -X "github.com/supreethrao/support-bot/cmd.buildTime=$(build_time)"
+ldflags := -X "github.com/supreethrao/automated-rota-manager/cmd.version=$(release_version)" -X "github.com/supreethrao/automated-rota-manager/cmd.buildTime=$(build_time)"
 
 # Define cross compiling targets
 os := $(shell uname)
@@ -26,52 +30,45 @@ PLATFORMS := linux darwin windows
 
 # ------ TARGETS -------
 
-.PHONY: setup check check-os vet lint format test build build-all-platforms install docker-local clean
-
+.PHONY: setup
 setup:
 	@echo "== setup"
 	go get -v golang.org/x/lint/golint
 	go get golang.org/x/tools/cmd/goimports
 
-check : check-os vet lint format
-	@[ "${moduleDir}" ] || ( echo "moduleDir needs to be passed as argument for this target. make moduleDir=<dirName> TARGET"; exit 1 )
+.PHONY: check
+check : check-os
 
+.PHONY: check-os
 check-os:
 ifndef target_os
 	$(error Unsupported platform: ${os})
 endif
 
-vet :
-	@echo "== vet"
-	@go vet $(pkgs)
-
-lint :
-	@echo "== lint"
-	@for pkg in $(pkgs); do \
-		golint -set_exit_status $$pkg || exit 1 ; \
-	done;
-
-format :
-	@echo "== format"
-	@goimports -w $(files)
-	@sync
-
+#.PHONY: lint
+#lint:
+#	golangci-lint run --fix
+#
+.PHONY: test
 test :
 	@echo "== run tests"
-	go test -v -race $(pkgs)
+	go test -v $(pkgs)
 
+.PHONY: build
 build : check test
 	@echo "== build"
-	GOOS=${target_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${target_os}/next-to-support -v
+	GOOS=${target_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${target_os}/automated-rota-manager -v
 
+.PHONY: build-all-platforms
 build-all-platforms : check test
 	@echo "== building binary for linux amd64"
-	GOOS=${target_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${target_os}/next-to-support -v
+	GOOS=${target_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${target_os}/automated-rota-manager -v
 	@echo "Cross compiling and building binary for ${cross_os} amd64"
-	GOOS=${cross_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${cross_os}/next-to-support -v
+	GOOS=${cross_os} GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/${cross_os}/automated-rota-manager -v
 	@echo "Cross compiling binary for windows amd64"
-	GOOS=windows GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/windows/next-to-support.exe -v
+	GOOS=windows GOARCH=amd64 go build -ldflags '-s $(ldflags)' -o ${build_dir}/windows/automated-rota-manager.exe -v
 
+.PHONY: install
 install : build-all-platforms
 	@echo "== installing binaries to dist folder"
 	@mkdir -p $(dist_dir)
@@ -81,12 +78,14 @@ install : build-all-platforms
 		cp -r $(build_dir)/$${platform} $(dist_dir)/$${platform}; \
 	done;
 
+.PHONY: docker-local
 docker-local: build
 	@echo "docker"
 	@echo "$(version)"
 	@cd ${moduleDir}
-	@docker build -t local/support-bot:v$(version) .
+	@docker build -t local/automated-rota-manager:v$(version) .
 
+.PHONY: clean
 clean :
 	@echo "== clean"
 	rm -rf build

@@ -6,8 +6,8 @@ import (
 
 var memberCounter = prometheus.NewCounterVec(
 	prometheus.CounterOpts{
-		Name: "support_days_counter",
-		Help: "Metrics which keep track of each person's support days",
+		Name: "rota_counter",
+		Help: "Metrics which keep track of days each person was picked",
 	},
 	[]string{"name", "date"},
 )
