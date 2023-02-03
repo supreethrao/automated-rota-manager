@@ -6,8 +6,6 @@ import (
 	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
 )
 
-
-
 func main() {
 	defer localdb.Close()
 	err := cmd.Exec()

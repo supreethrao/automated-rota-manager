@@ -7,10 +7,11 @@ import (
 	"math"
 	"time"
 
+	"github.com/dgraph-io/badger"
+	"github.com/sirupsen/logrus"
 	"github.com/supreethrao/automated-rota-manager/pkg/keys"
 	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
 
-	"github.com/dgraph-io/badger"
 	"gopkg.in/yaml.v2"
 )
 
@@ -61,7 +62,7 @@ func (t Team) Add(newMember string) error {
 	if data, err := yaml.Marshal(updatedTeam); err == nil {
 		multiData := map[string][]byte{
 			t.TeamKey():                        data,
-			t.AccruedDaysCounterKey(newMember): uintToBytes(0),
+			t.AccruedDaysCounterKey(newMember): uintToBytes(t.lowestAccruedDaysAmongstTeamMembers()),
 		}
 		return localdb.MultiWrite(multiData)
 	} else {
@@ -158,8 +159,17 @@ func (t Team) Next() string {
 		return "UNKNOWN"
 	}
 
+	// Days in between picking same person. Set at 2 times the frequency. i.e same person won't be picked before having picked at least 2 others
+	minDaysInBetween := 0
+	lastRun, err := localdb.Read(t.LatestCronRunKey())
+	if err != nil {
+		logrus.Warnf("unable to obtain last run time: %v", err)
+	} else {
+		minDaysInBetween = differenceBetweenDays(string(lastRun), today()) * 2
+	}
+
 	for _, individual := range teamRotaHistory {
-		if differenceBetweenDays(individual.LatestPickedDay, today()) > 2 {
+		if differenceBetweenDays(individual.LatestPickedDay, today()) > minDaysInBetween {
 			probablePerson := individual.Name
 
 			if t.IsAvailable(probablePerson) {
@@ -202,7 +212,7 @@ func bytesToUint(val []byte) uint16 {
 	return binary.BigEndian.Uint16(val)
 }
 
-func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) float64 {
+func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) int {
 	firstDay, e1 := time.Parse("02-01-2006", ddmmyyyyStr1)
 	if e1 != nil {
 		log.Panicf("Unable to parse date string %s - %v", ddmmyyyyStr1, e1)
@@ -211,11 +221,22 @@ func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) float64 {
 	if e2 != nil {
 		log.Panicf("Unable to parse date string %s - %v", ddmmyyyystr2, e2)
 	}
-	return math.Round(math.Abs(secondDay.Sub(firstDay).Hours() / 24))
+	return int(math.Round(math.Abs(secondDay.Sub(firstDay).Hours() / 24)))
 }
 
 func today() string {
 	return time.Now().Format("02-01-2006")
+}
+
+func (t Team) lowestAccruedDaysAmongstTeamMembers() uint16 {
+	var lowestAccruedDays = uint16(65535)
+	for _, individualHistory := range t.RotaHistory() {
+		if individualHistory.DaysAccrued < lowestAccruedDays {
+			lowestAccruedDays = individualHistory.DaysAccrued
+		}
+	}
+
+	return lowestAccruedDays
 }
 
 func NewTeam(name string) *Team {

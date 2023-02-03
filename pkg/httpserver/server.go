@@ -21,7 +21,7 @@ const (
 	shutdownGracePeriod = 15 * time.Second
 )
 
-func Start(_ context.Context, myTeam *rota.Team) error {
+func Start(_ context.Context, slackMessager *slackhandler.Messager, myTeam *rota.Team) error {
 	router := httprouter.New()
 
 	router.POST("/members/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -95,7 +95,7 @@ func Start(_ context.Context, myTeam *rota.Team) error {
 		}
 
 		if err := myTeam.SetPersonPickedForToday(personPickedToday); err == nil {
-			_ = slackhandler.SendMessage(fmt.Sprintf("The person picked today is confirmed to be: %s \n", personPickedToday))
+			_ = slackMessager.SendMessage(fmt.Sprintf("The person picked today is confirmed to be: %s \n", personPickedToday))
 			writer.WriteHeader(http.StatusAccepted)
 		} else {
 			_, _ = fmt.Fprintln(writer, err)
@@ -112,7 +112,7 @@ func Start(_ context.Context, myTeam *rota.Team) error {
 		}
 
 		if err := myTeam.OverridePersonPickedForToday(personToOverrideWith); err == nil {
-			_ = slackhandler.SendMessage(fmt.Sprintf("The rota pick for today was overridden. It's now: %s \n", personToOverrideWith))
+			_ = slackMessager.SendMessage(fmt.Sprintf("The rota pick for today was overridden. It's now: %s \n", personToOverrideWith))
 			writer.WriteHeader(http.StatusAccepted)
 		} else {
 			_, _ = fmt.Fprintln(writer, err)

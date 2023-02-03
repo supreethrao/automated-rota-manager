@@ -3,18 +3,27 @@ package slackhandler
 import (
 	"fmt"
 
-	"github.com/supreethrao/automated-rota-manager/pkg/helpers"
-
 	"github.com/nlopes/slack"
 )
 
-func SendMessage(messageText string) error {
-	token := helpers.Getenv("SLACK_TOKEN", "")
-	channel := helpers.Getenv("SLACK_CHANNEL", "core-infrastructure")
-	username := helpers.Getenv("SLACK_USERNAME", "Botty McBotface")
-	api := slack.New(token)
-	_, _, err := api.PostMessage(channel, messageText, slack.PostMessageParameters{
-		Username:    username,
+type Messager struct {
+	privateSlackConfig
+}
+
+type SlackConfig struct {
+	Token string
+	Channel string
+	UserName string
+}
+
+type privateSlackConfig struct {
+	SlackConfig
+}
+
+func (m *Messager) SendMessage(messageText string) error {
+	api := slack.New(m.Token)
+	_, _, err := api.PostMessage(m.Channel, messageText, slack.PostMessageParameters{
+		Username:    m.UserName,
 		AsUser:      true,
 		UnfurlMedia: true,
 		UnfurlLinks: true,
@@ -29,12 +38,16 @@ func SendMessage(messageText string) error {
 	return nil
 }
 
-func SetChannelTopic(topicString string) error {
-	token := helpers.Getenv("SLACK_TOKEN", "")
-	channel := helpers.Getenv("SLACK_CHANNEL", "core-infrastructure")
-	api := slack.New(token)
-
-	_, err := api.SetChannelTopic(channel, topicString)
-
+func (m *Messager) SetChannelTopic(topicString string) error {
+	api := slack.New(m.Token)
+	_, err := api.SetChannelTopic(m.Channel, topicString)
 	return err
+}
+
+func NewMessager(slackConfig SlackConfig) *Messager {
+	return &Messager{
+		privateSlackConfig{
+			slackConfig,
+		},
+	}
 }

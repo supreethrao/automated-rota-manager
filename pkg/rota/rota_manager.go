@@ -3,12 +3,12 @@ package rota
 import (
 	"context"
 	"fmt"
-	"github.com/supreethrao/automated-rota-manager/pkg/helpers"
-	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
-	"github.com/supreethrao/automated-rota-manager/pkg/slackhandler"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
+	"github.com/supreethrao/automated-rota-manager/pkg/slackhandler"
 )
 
 type IndividualHistory struct {
@@ -35,15 +35,14 @@ func (t Team) OrderedRota() []IndividualHistory {
 	return orderedList(t.RotaHistory())
 }
 
-func (t Team) PickNextPerson(_ context.Context) {
+func (t Team) PickNextPerson(_ context.Context, slackMessager *slackhandler.Messager, ingressURL string) {
 	nextPersonOnRota := t.Next()
-	host := helpers.Getenv("AUTOMATED_ROTA_MANAGER_HOST", "UNKNOWN_HOST")
 
 	message := fmt.Sprintf("The person picked for today is: %s. \n "+
 		"To confirm, all you have to do is to click: %s/rota/confirm/%s/%s \n\n \n"+
-		"To select a different person, click the below ordered link: \n\n %s", nextPersonOnRota, host, nextPersonOnRota, time.Now().Format("02-01-2006"), t.orderedRotaMessage(host))
+		"To select a different person, click the below ordered link: \n\n %s", nextPersonOnRota, ingressURL, nextPersonOnRota, time.Now().Format("02-01-2006"), t.orderedRotaMessage(ingressURL))
 
-	if err := slackhandler.SendMessage(message); err != nil {
+	if err := slackMessager.SendMessage(message); err != nil {
 		log.Panic("Unable to send slack message", err)
 	}
 }
@@ -73,6 +72,7 @@ func (t Team) SetPersonPickedForToday(memberName string) error {
 	rotaKeys[t.AccruedDaysCounterKey(memberName)] = newAccruedDays
 	rotaKeys[t.LatestDayPickedKey(memberName)] = []byte(today())
 	rotaKeys[t.PersonPickedOnDayKey(time.Now())] = []byte(memberName)
+	rotaKeys[t.LatestCronRunKey()] = []byte(today())
 
 	return localdb.MultiWrite(rotaKeys)
 }
@@ -103,6 +103,7 @@ func (t Team) OverridePersonPickedForToday(memberName string) error {
 	rotaKeys[t.AccruedDaysCounterKey(memberName)] = newAccruedDays
 	rotaKeys[t.LatestDayPickedKey(memberName)] = []byte(today())
 	rotaKeys[t.PersonPickedOnDayKey(time.Now())] = []byte(memberName)
+	rotaKeys[t.LatestCronRunKey()] = []byte(today())
 
 	return localdb.MultiWrite(rotaKeys)
 }

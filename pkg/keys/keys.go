@@ -25,6 +25,10 @@ func (key *Keys) LatestDayPickedKey(memberName string) string {
 	return key.rootPrefix + "::latest-day::" + memberName
 }
 
+func (key *Keys) LatestCronRunKey() string {
+	return key.rootPrefix + "::latest-cron"
+}
+
 func (key *Keys) OutOfOfficeKey(memberName string) (string, string) {
 	keyBase := key.rootPrefix + "::out_of_office::" + memberName
 	return keyBase + "::from_date", keyBase + "::to_date"

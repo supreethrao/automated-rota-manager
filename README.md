@@ -2,7 +2,7 @@
 
 Provides a fair rotation algorithm to decide the next person in the rota. 
 It maintains count of the number of days an individual team member has been picked and uses that to decide the next person with least number of days. 
-It also takes into account not to pick the same person without a gap of at least 2 days, irrespective of the number of days the person has accrued.
+It also takes into account not to pick the same person without a gap of at least 2 other picks, irrespective of the number of days the person has accrued.
 
 ## Project setup
 Makefile has a target `setup` which should setup the project. 

@@ -2,27 +2,32 @@ package scheduler
 
 import (
 	"github.com/robfig/cron"
+	"time"
 )
 
 type Schedule struct {
-	cron      string
+	cronExpression      string
 	execution func()
+	cron *cron.Cron
 }
 
 func (s *Schedule) Schedule() error {
-	crony := cron.New()
-	err := crony.AddFunc(s.cron, s.execution)
+	err := s.cron.AddFunc(s.cronExpression, s.execution)
 	if err != nil {
 		return err
 	}
-	crony.Start()
+	s.cron.Start()
 	return nil
 }
 
-func NewSchedule(cronExpression string, todo func()) *Schedule {
-	return &Schedule{
-		cron:      cronExpression,
-		execution: todo,
-	}
+func (s *Schedule) NextRun() time.Time {
+	return s.cron.Entries()[0].Next
 }
 
+func NewSchedule(cronExpression string, toExecute func()) *Schedule {
+	return &Schedule{
+		cronExpression: cronExpression,
+		execution:      toExecute,
+		cron :          cron.New(),
+	}
+}
