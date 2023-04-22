@@ -3,6 +3,7 @@ package rota
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"time"
@@ -15,9 +16,14 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	maxUInt16 = 65535
+)
+
 // name will be used as the key prefix
 type Team struct {
 	name string
+	db *localdb.LocalDB
 	keys.Keys
 }
 
@@ -30,13 +36,13 @@ type teamMembers struct {
 	Members []string `yaml:"members"`
 }
 
-func (t Team) List() []string {
-	data, err := localdb.Read(t.TeamKey())
+func (t Team) List() ([]string, error) {
+	data, err := t.db.Read(t.TeamKey())
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
-			return []string{}
+			return []string{}, nil
 		}
-		panic(err)
+		return nil, err
 	}
 
 	members := teamMembers{}
@@ -45,11 +51,14 @@ func (t Team) List() []string {
 		log.Panicf("Unable to obtain team members: %v", err)
 	}
 
-	return members.Members
+	return members.Members, nil
 }
 
 func (t Team) Add(newMember string) error {
-	currentMembers := t.List()
+	currentMembers, err := t.List()
+	if err != nil {
+		return err
+	}
 
 	for _, member := range currentMembers {
 		if newMember == member {
@@ -64,14 +73,17 @@ func (t Team) Add(newMember string) error {
 			t.TeamKey():                        data,
 			t.AccruedDaysCounterKey(newMember): uintToBytes(t.lowestAccruedDaysAmongstTeamMembers()),
 		}
-		return localdb.MultiWrite(multiData)
+		return t.db.MultiWrite(multiData)
 	} else {
 		return err
 	}
 }
 
 func (t Team) Remove(existingMember string) error {
-	currentMembers := t.List()
+	currentMembers, err := t.List()
+	if err != nil {
+		return err
+	}
 	updatedMembers := make([]string, 0)
 
 	for _, member := range currentMembers {
@@ -81,20 +93,20 @@ func (t Team) Remove(existingMember string) error {
 	}
 	updatedTeam := teamMembers{updatedMembers}
 	if data, err := yaml.Marshal(updatedTeam); err == nil {
-		return localdb.Write(t.TeamKey(), data)
+		return t.db.Write(t.TeamKey(), data)
 	} else {
 		return err
 	}
 }
 
 func (t Team) HistoryOfIndividual(member string) IndividualHistory {
-	history := IndividualHistory{member, 0, "31-12-2006"}
-	count, err := localdb.Read(t.AccruedDaysCounterKey(member))
+	history := IndividualHistory{member, 0, "N/A"}
+	count, err := t.db.Read(t.AccruedDaysCounterKey(member))
 	if err == nil {
 		history.DaysAccrued = bytesToUint(count)
 	}
 
-	day, err := localdb.Read(t.LatestDayPickedKey(member))
+	day, err := t.db.Read(t.LatestDayPickedKey(member))
 	if err == nil {
 		history.LatestPickedDay = string(day)
 	}
@@ -102,12 +114,16 @@ func (t Team) HistoryOfIndividual(member string) IndividualHistory {
 	return history
 }
 
-func (t Team) RotaHistory() TeamRotaHistory {
+func (t Team) RotaHistory() (TeamRotaHistory, error) {
 	teamHistory := make([]IndividualHistory, 0)
-	for _, member := range t.List() {
+	teamList, err := t.List()
+	if err != nil {
+		 return nil, err
+	}
+	for _, member := range teamList {
 		teamHistory = append(teamHistory, t.HistoryOfIndividual(member))
 	}
-	return teamHistory
+	return teamHistory, nil
 }
 
 
@@ -117,7 +133,7 @@ func (t Team) SetOutOfOffice(memberName string, from time.Time, to time.Time) er
 
 	fromKey, toKey := t.OutOfOfficeKey(memberName)
 
-	return localdb.MultiWrite(map[string][]byte{
+	return t.db.MultiWrite(map[string][]byte{
 		fromKey: []byte(fromDate),
 		toKey:   []byte(toDate),
 	})
@@ -127,16 +143,21 @@ func (t Team) GetOutOfOffice(memberName string) []byte {
 	return t.outOfOffice([]string{memberName})
 }
 
-func (t Team) GetTeamOutOfOffice() []byte {
-	return t.outOfOffice(t.List())
+func (t Team) GetTeamOutOfOffice() ([]byte, error) {
+	teamList, err := t.List()
+	if err != nil {
+		return nil, err
+	}
+
+	return t.outOfOffice(teamList), nil
 }
 
 func (t Team) IsAvailable(memberName string) bool {
 	today := time.Now().Format("02-01-2006")
 	fromKey, toKey := t.OutOfOfficeKey(memberName)
 
-	from, errFrom := localdb.Read(fromKey)
-	to, errTo := localdb.Read(toKey)
+	from, errFrom := t.db.Read(fromKey)
+	to, errTo := t.db.Read(toKey)
 
 	if errFrom == nil && errTo == nil {
 		fromDate, _ := time.Parse("02-01-2006", string(from))
@@ -152,43 +173,63 @@ func (t Team) IsAvailable(memberName string) bool {
 	return true
 }
 
-func (t Team) Next() string {
-	teamRotaHistory := orderedList(t.RotaHistory())
+func (t Team) Next() (string, error) {
+	history, err := t.RotaHistory()
+	if err != nil {
+		return "", err
+	}
+	teamRotaHistory := orderedList(history)
 
 	if teamRotaHistory.Len() < 1 {
-		return "UNKNOWN"
+		return "UNKNOWN-HISTORY", nil
 	}
 
 	// Days in between picking same person. Set at 2 times the frequency. i.e same person won't be picked before having picked at least 2 others
 	minDaysInBetween := 0
-	lastRun, err := localdb.Read(t.LatestCronRunKey())
+	lastRun, err := t.db.Read(t.LatestCronRunKey())
 	if err != nil {
-		logrus.Warnf("unable to obtain last run time: %v", err)
+		logrus.Errorf("unable to obtain last run time: %v", err)
 	} else {
-		minDaysInBetween = differenceBetweenDays(string(lastRun), today()) * 2
-	}
-
-	for _, individual := range teamRotaHistory {
-		if differenceBetweenDays(individual.LatestPickedDay, today()) > minDaysInBetween {
-			probablePerson := individual.Name
-
-			if t.IsAvailable(probablePerson) {
-				return probablePerson
-			}
+		minDaysInBetween, err = differenceBetweenDays(string(lastRun), today())
+		if err != nil {
+			logrus.Errorf("unable to obtain difference in number of days since the cron run. Defaulting to 0: %v", err)
+		} else {
+			// There should be at least 2 different picks before the same person is picked again.
+			minDaysInBetween *= 2
 		}
 	}
-	return "UNKNOWN"
+
+	logrus.Infof("min days in between picks %v", minDaysInBetween)
+	for _, individual := range teamRotaHistory {
+		latestPickedDay := "31-12-2006"
+		// If the person is newly added and has not been picked yet, this value will be N/A. Else that person is ripe to be picked next
+		if individual.LatestPickedDay != "N/A" {
+			latestPickedDay = individual.LatestPickedDay
+		}
+
+		if diffBetweenLastPick, err := differenceBetweenDays(latestPickedDay, today()); err == nil {
+			if  diffBetweenLastPick > minDaysInBetween {
+				probablePerson := individual.Name
+
+				if t.IsAvailable(probablePerson) {
+					return probablePerson, nil
+				}
+			}
+		} else {
+			return "UNKNOWN-ERROR", err
+		}
+	}
+	return "UNKNOWN-UNKNOWN", nil
 }
 
 func (t Team) outOfOffice(names []string) []byte {
-
 	var oooRecords []outofoffice
 
 	for _, memberName := range names {
 		fromKey, toKey := t.OutOfOfficeKey(memberName)
 
-		from, errFrom := localdb.Read(fromKey)
-		to, errTo := localdb.Read(toKey)
+		from, errFrom := t.db.Read(fromKey)
+		to, errTo := t.db.Read(toKey)
 
 		if errFrom == nil && errTo == nil {
 			oooRecords = append(oooRecords, outofoffice{memberName, "From " + string(from) + " To " + string(to)})
@@ -212,16 +253,21 @@ func bytesToUint(val []byte) uint16 {
 	return binary.BigEndian.Uint16(val)
 }
 
-func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) int {
+func differenceBetweenDays(ddmmyyyyStr1, ddmmyyyystr2 string) (int, error) {
 	firstDay, e1 := time.Parse("02-01-2006", ddmmyyyyStr1)
 	if e1 != nil {
-		log.Panicf("Unable to parse date string %s - %v", ddmmyyyyStr1, e1)
+		return 0, fmt.Errorf("Unable to parse date string %s - %v", ddmmyyyyStr1, e1)
 	}
 	secondDay, e2 := time.Parse("02-01-2006", ddmmyyyystr2)
 	if e2 != nil {
-		log.Panicf("Unable to parse date string %s - %v", ddmmyyyystr2, e2)
+		return 0, fmt.Errorf("Unable to parse date string %s - %v", ddmmyyyystr2, e2)
 	}
-	return int(math.Round(math.Abs(secondDay.Sub(firstDay).Hours() / 24)))
+
+	// check second day is after the first day
+	if secondDay.After(firstDay) {
+		return int(math.Round(math.Abs(secondDay.Sub(firstDay).Hours() / 24))), nil
+	}
+	return 0, fmt.Errorf("cron run date %v is in the future and this is incorrect. ", secondDay)
 }
 
 func today() string {
@@ -229,19 +275,30 @@ func today() string {
 }
 
 func (t Team) lowestAccruedDaysAmongstTeamMembers() uint16 {
-	var lowestAccruedDays = uint16(65535)
-	for _, individualHistory := range t.RotaHistory() {
+	var lowestAccruedDays = uint16(maxUInt16)
+
+	history, err := t.RotaHistory()
+	if err != nil {
+		return 1
+	}
+
+	for _, individualHistory := range history {
 		if individualHistory.DaysAccrued < lowestAccruedDays {
 			lowestAccruedDays = individualHistory.DaysAccrued
 		}
 	}
 
+	// This conditional required while adding the very first team member on a new deployment
+	if lowestAccruedDays == maxUInt16 {
+		return 1
+	}
 	return lowestAccruedDays
 }
 
-func NewTeam(name string) *Team {
+func NewTeam(name string, dbHandle *localdb.LocalDB) *Team {
 	return &Team{
 		name,
+		dbHandle,
 		keys.NewKey(name),
 	}
 }

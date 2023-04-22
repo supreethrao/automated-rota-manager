@@ -32,7 +32,13 @@ func Start(_ context.Context, slackMessager *slackhandler.Messager, myTeam *rota
 
 	router.GET("/members", func(writer http.ResponseWriter, request *http.Request, _ httprouter.Params) {
 		writer.Header().Set("Content-Type", "application/json")
-		jsonData, _ := json.Marshal(myTeam.RotaHistory())
+		history, err := myTeam.RotaHistory()
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte(fmt.Sprintf("unable to get team memers %v", err)))
+			return
+		}
+		jsonData, _ := json.Marshal(history)
 		_, _ = writer.Write(jsonData)
 	})
 
@@ -69,7 +75,13 @@ func Start(_ context.Context, slackMessager *slackhandler.Messager, myTeam *rota
 	})
 
 	router.GET("/outofoffice", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-		_, _ = writer.Write(myTeam.GetTeamOutOfOffice())
+		outOfOffice, err := myTeam.GetTeamOutOfOffice()
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte(fmt.Sprintf("unable to get team out of office due to error %v", err)))
+			return
+		}
+		_, _ = writer.Write(outOfOffice)
 	})
 
 	router.GET("/outofoffice/:name", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -77,7 +89,13 @@ func Start(_ context.Context, slackMessager *slackhandler.Messager, myTeam *rota
 	})
 
 	router.GET("/rota/next", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {
-		_, _ = fmt.Fprintf(writer, "The person picked today is: %s. \n", myTeam.Next())
+		nextPerson, err := myTeam.Next()
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte(fmt.Sprintf("unable to get pick next person on rota %v", err)))
+			return
+		}
+		_, _ = fmt.Fprintf(writer, "The person picked today is: %s. \n", nextPerson)
 	})
 
 	router.GET("/rota/confirm/:name/:date", func(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {

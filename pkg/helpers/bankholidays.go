@@ -34,7 +34,9 @@ func init() {
 		log.Fatalf("Unable to obtain holidays list. Quitting")
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	placeHolder := map[string]locationSpecificHolidays{}

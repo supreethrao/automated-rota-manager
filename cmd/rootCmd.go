@@ -6,6 +6,7 @@ import (
 	"github.com/supreethrao/automated-rota-manager/pkg/config"
 	"github.com/supreethrao/automated-rota-manager/pkg/helpers"
 	"github.com/supreethrao/automated-rota-manager/pkg/httpserver"
+	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
 	"github.com/supreethrao/automated-rota-manager/pkg/rota"
 	"github.com/supreethrao/automated-rota-manager/pkg/scheduler"
 	"github.com/supreethrao/automated-rota-manager/pkg/slackhandler"
@@ -21,8 +22,7 @@ var rootCmd = &cobra.Command {
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&configFilePath, "config", "f", "", "config file path")
-	_ = rootCmd.MarkFlagRequired("config")
+	rootCmd.Flags().StringVarP(&configFilePath, "config", "f", "/app/config/arm-config.yaml", "config file path")
 }
 
 func runRotaManager(_ *cobra.Command, _ []string) error {
@@ -30,7 +30,14 @@ func runRotaManager(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	myTeam := rota.NewTeam(cfg.TeamName)
+
+	dbHandle, err := localdb.GetHandle()
+	if err != nil {
+		return err
+	}
+	defer dbHandle.Close()
+
+	myTeam := rota.NewTeam(cfg.TeamName, dbHandle)
 
 	initContext := context.Background()
 	cancelContext, cancelFunc := context.WithCancel(initContext)

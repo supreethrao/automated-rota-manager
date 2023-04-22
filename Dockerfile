@@ -11,6 +11,7 @@ RUN mkdir -p -m 0700 /root/.ssh && ssh-keyscan -t rsa github.com >> ~/.ssh/known
 WORKDIR /repo/automated-rota-manager
 COPY . .
 
+RUN mkdir -p "/tmp/data"
 RUN GOPATH="" make build
 
 FROM docker.io/library/alpine:3.16

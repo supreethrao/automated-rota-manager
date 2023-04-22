@@ -1,54 +1,76 @@
 package localdb
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"sync"
 
 	"github.com/dgraph-io/badger"
 )
 
 const (
-	dbLocation string = "/tmp/data"
+	DefaultDBLocation string = "/badger/data"
 )
 
 var sequences = make(map[string]*badger.Sequence)
 
-func init() {
+var localDB *LocalDB
+
+type LocalDB struct {
+	db *badger.DB
+}
+
+func GetHandle() (*LocalDB, error) {
+	return GetHandleFromLocation(DefaultDBLocation)
+}
+
+func GetHandleFromLocation(dbLocation string) (*LocalDB, error) {
+	myLock := sync.Mutex{}
+
+	myLock.Lock()
+	defer myLock.Unlock()
+
+	if localDB != nil {
+		return localDB, nil
+	}
+
 	info, err := os.Stat(dbLocation)
 	if err != nil {
 		if isNotPresent := os.IsNotExist(err); isNotPresent {
-			log.Fatalf("The directory %s need to exist", dbLocation)
+			return nil, fmt.Errorf("the directory %s need to exist", dbLocation)
 		}
 	}
 
 	isMatch, _ := regexp.MatchString("drwx.*", info.Mode().String())
 	if !isMatch {
-		log.Fatalf("The directory %s need to have read write execute permission", dbLocation)
+		return nil, fmt.Errorf("the directory %s need to have read write execute permission", dbLocation)
 	}
-}
 
-var db = func() *badger.DB {
 	badgerOpt := badger.DefaultOptions
 	badgerOpt.Dir = dbLocation
 	badgerOpt.ValueDir = dbLocation
 
 	dbPtr, err := badger.Open(badgerOpt)
-	if err == nil {
-		return dbPtr
+	if err != nil {
+		return nil, fmt.Errorf("not able to initialise DB: %v", err)
 	}
-	log.Fatalf("Not able to initialise DB: %v", err)
-	return nil
-}()
+	localDB = &LocalDB{
+		db: dbPtr,
+	}
 
-func Write(key string, data []byte) error {
-	return db.Update(func(txn *badger.Txn) error {
+	return localDB, nil
+}
+
+func (l *LocalDB) Write(key string, data []byte) error {
+	return l.db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), data)
 	})
 }
 
-func MultiWrite(multiData map[string][]byte) error {
-	return db.Update(func(txn *badger.Txn) error {
+func (l *LocalDB) MultiWrite(multiData map[string][]byte) error {
+	return l.db.Update(func(txn *badger.Txn) error {
 		for key, val := range multiData {
 			err := txn.Set([]byte(key), val)
 			if err != nil {
@@ -59,9 +81,9 @@ func MultiWrite(multiData map[string][]byte) error {
 	})
 }
 
-func Read(key string) ([]byte, error) {
+func (l *LocalDB) Read(key string) ([]byte, error) {
 	var data = make([]byte, 0)
-	err := db.View(func(txn *badger.Txn) error {
+	err := l.db.View(func(txn *badger.Txn) error {
 		item, readError := txn.Get([]byte(key))
 		if readError == nil {
 			dst, copyError := item.ValueCopy(data)
@@ -76,9 +98,9 @@ func Read(key string) ([]byte, error) {
 	return data, err
 }
 
-func ListKeys() []string {
+func (l *LocalDB) ListKeys() []string {
 	keys := make([]string, 0)
-	_ = db.View(func(txn *badger.Txn) error {
+	_ = l.db.View(func(txn *badger.Txn) error {
 
 		options := badger.DefaultIteratorOptions
 		options.PrefetchValues = false
@@ -93,15 +115,15 @@ func ListKeys() []string {
 	return keys
 }
 
-func Remove(key string) error {
-	return db.Update(func(txn *badger.Txn) error {
+func (l *LocalDB) Remove(key string) error {
+	return l.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(key))
 	})
 }
 
-func NewSeq(memberName string) error {
+func (l *LocalDB) NewSeq(memberName string) error {
 	if _, ok := sequences[memberName]; !ok {
-		if seq, err := db.GetSequence([]byte(memberName), 1); err == nil {
+		if seq, err := l.db.GetSequence([]byte(memberName), 1); err == nil {
 			sequences[memberName] = seq
 			return nil
 		} else {
@@ -112,26 +134,26 @@ func NewSeq(memberName string) error {
 	return nil
 }
 
-func NextSeq(memberName string) uint64 {
+func (l *LocalDB) NextSeq(memberName string) (uint64, error) {
 	if seq, ok := sequences[memberName]; ok {
 		if next, err := seq.Next(); err != nil {
-			panic("Unable to obtain the next sequence")
+			return 0, fmt.Errorf("Unable to obtain the next sequence")
 		} else {
-			return next
+			return next, nil
 		}
 	} else {
-		if err := NewSeq(memberName); err == nil {
+		if err := l.NewSeq(memberName); err == nil {
 			if next, err := sequences[memberName].Next(); err == nil {
-				return next
+				return next, nil
 			} else {
-				panic("Unable to obtain the next sequence")
+				return 0, fmt.Errorf("Unable to obtain the next sequence")
 			}
 		} else {
-			panic("Unable to obtain the next sequence")
+			return 0, fmt.Errorf("Unable to obtain the next sequence")
 		}
 	}
 }
 
-func Close() {
-	_ = db.Close()
+func (l *LocalDB) Close() {
+	_ = l.db.Close()
 }

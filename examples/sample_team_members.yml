@@ -1,5 +1,6 @@
 ---
-members:
-  - member1
-  - member2
-  - third member
+cron_schedule: "0 11 * * 3"
+team_name:  "Core-Managed-K8s"
+ingress_url: "https://support-bot.pre-dev.ce.af-south-1.eu-aws.npsummerdc.com"
+slack_user_name: "Botty McBotface"
+slack_channel: "test-support-bot"

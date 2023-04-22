@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/supreethrao/automated-rota-manager/pkg/localdb"
+	"github.com/sirupsen/logrus"
 	"github.com/supreethrao/automated-rota-manager/pkg/slackhandler"
 )
 
@@ -32,23 +32,32 @@ func (history TeamRotaHistory) Less(i, j int) bool {
 }
 
 func (t Team) OrderedRota() []IndividualHistory {
-	return orderedList(t.RotaHistory())
+	history, err := t.RotaHistory()
+	if err != nil {
+		logrus.Errorf("unable to obtain rota history: %v", err)
+		return nil
+	}
+	return orderedList(history)
 }
 
 func (t Team) PickNextPerson(_ context.Context, slackMessager *slackhandler.Messager, ingressURL string) {
-	nextPersonOnRota := t.Next()
+	nextPersonOnRota, err := t.Next()
+	if err != nil {
+		logrus.Errorf("picking next person errored with error: %v", err)
+		return
+	}
 
 	message := fmt.Sprintf("The person picked for today is: %s. \n "+
 		"To confirm, all you have to do is to click: %s/rota/confirm/%s/%s \n\n \n"+
 		"To select a different person, click the below ordered link: \n\n %s", nextPersonOnRota, ingressURL, nextPersonOnRota, time.Now().Format("02-01-2006"), t.orderedRotaMessage(ingressURL))
 
 	if err := slackMessager.SendMessage(message); err != nil {
-		log.Panic("Unable to send slack message", err)
+		logrus.Errorf("unable to send slack message with error: %v", err)
 	}
 }
 
 func (t Team) PersonPickedOnTheDay(date time.Time) string {
-	personPicked, err := localdb.Read(t.PersonPickedOnDayKey(date))
+	personPicked, err := t.db.Read(t.PersonPickedOnDayKey(date))
 	if err == nil {
 		return string(personPicked)
 	}
@@ -66,7 +75,7 @@ func (t Team) SetPersonPickedForToday(memberName string) error {
 		return fmt.Errorf("%s is already assigned for the day", personAssignedForTheDay)
 	}
 
-	currentlyAccruedDays, _ := localdb.Read(t.AccruedDaysCounterKey(memberName))
+	currentlyAccruedDays, _ := t.db.Read(t.AccruedDaysCounterKey(memberName))
 	newAccruedDays := uintToBytes(bytesToUint(currentlyAccruedDays) + 1)
 
 	rotaKeys[t.AccruedDaysCounterKey(memberName)] = newAccruedDays
@@ -74,7 +83,7 @@ func (t Team) SetPersonPickedForToday(memberName string) error {
 	rotaKeys[t.PersonPickedOnDayKey(time.Now())] = []byte(memberName)
 	rotaKeys[t.LatestCronRunKey()] = []byte(today())
 
-	return localdb.MultiWrite(rotaKeys)
+	return t.db.MultiWrite(rotaKeys)
 }
 
 func (t Team) OverridePersonPickedForToday(memberName string) error {
@@ -86,7 +95,7 @@ func (t Team) OverridePersonPickedForToday(memberName string) error {
 		return t.SetPersonPickedForToday(memberName)
 	}
 
-	pickedDaysAsBytes, _ := localdb.Read(t.AccruedDaysCounterKey(personAssignedForTheDay))
+	pickedDaysAsBytes, _ := t.db.Read(t.AccruedDaysCounterKey(personAssignedForTheDay))
 	adjustedPickedDays := uint16(0)
 	pickedDays := bytesToUint(pickedDaysAsBytes)
 	if pickedDays > 0 {
@@ -97,7 +106,7 @@ func (t Team) OverridePersonPickedForToday(memberName string) error {
 	// This is incorrect - need to traverse through the history and get the date this person was previously picked
 	rotaKeys[t.LatestDayPickedKey(personAssignedForTheDay)] = []byte("31-12-2006")
 
-	currentlyAccruedDays, _ := localdb.Read(t.AccruedDaysCounterKey(memberName))
+	currentlyAccruedDays, _ := t.db.Read(t.AccruedDaysCounterKey(memberName))
 	newAccruedDays := uintToBytes(bytesToUint(currentlyAccruedDays) + 1)
 
 	rotaKeys[t.AccruedDaysCounterKey(memberName)] = newAccruedDays
@@ -105,7 +114,7 @@ func (t Team) OverridePersonPickedForToday(memberName string) error {
 	rotaKeys[t.PersonPickedOnDayKey(time.Now())] = []byte(memberName)
 	rotaKeys[t.LatestCronRunKey()] = []byte(today())
 
-	return localdb.MultiWrite(rotaKeys)
+	return t.db.MultiWrite(rotaKeys)
 }
 
 func orderedList(teamRotaHistory TeamRotaHistory) TeamRotaHistory {
