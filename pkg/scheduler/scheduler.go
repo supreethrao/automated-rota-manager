@@ -1,8 +1,9 @@
 package scheduler
 
 import (
-	"github.com/robfig/cron"
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
 type Schedule struct {
@@ -12,7 +13,7 @@ type Schedule struct {
 }
 
 func (s *Schedule) Schedule() error {
-	err := s.cron.AddFunc(s.cronExpression, s.execution)
+	_, err := s.cron.AddFunc(s.cronExpression, s.execution)
 	if err != nil {
 		return err
 	}
