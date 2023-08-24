@@ -58,12 +58,11 @@ func (t Team) PickNextPerson(_ context.Context, slackMessager *slackhandler.Mess
 
 func (t Team) PersonPickedOnTheDay(date time.Time) string {
 	personPicked, err := t.db.Read(t.PersonPickedOnDayKey(date))
-	if err == nil {
-		return string(personPicked)
+	if err != nil {
+		log.Printf("Unable to retrieve person picked on %v. error: %v", date, err)
+		return "UNKNOWN"
 	}
-
-	log.Printf("Unable to retrieve person picked on %v", date)
-	return "UNKNOWN"
+	return string(personPicked)
 }
 
 func (t Team) SetPersonPickedForToday(memberName string) error {
@@ -83,7 +82,12 @@ func (t Team) SetPersonPickedForToday(memberName string) error {
 	rotaKeys[t.PersonPickedOnDayKey(time.Now())] = []byte(memberName)
 	rotaKeys[t.LatestCronRunKey()] = []byte(today())
 
-	return t.db.MultiWrite(rotaKeys)
+	log.Printf("Confirming the selection for the day %q and updating the db with the new accrued number details", memberName)
+	err := t.db.MultiWrite(rotaKeys)
+	if err != nil {
+		log.Printf("error writing to db: %v", err)
+	}
+	return err
 }
 
 func (t Team) OverridePersonPickedForToday(memberName string) error {

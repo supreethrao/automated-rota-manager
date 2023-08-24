@@ -116,6 +116,7 @@ func Start(_ context.Context, slackMessager *slackhandler.Messager, myTeam *rota
 			_ = slackMessager.SendMessage(fmt.Sprintf("The person picked today is confirmed to be: %s \n", personPickedToday))
 			writer.WriteHeader(http.StatusAccepted)
 		} else {
+			writer.WriteHeader(http.StatusInternalServerError)
 			_, _ = fmt.Fprintln(writer, err)
 		}
 	})
